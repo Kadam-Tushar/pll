@@ -118,8 +118,11 @@ class PiCO(nn.Module):
         score_prot = torch.softmax(logits_prot, dim=1)
 
         # update momentum prototypes with pseudo labels
-        for feat, label in zip(concat_all_gather(q), concat_all_gather(pseudo_labels_b)):
-            self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+        for feat, label,max_prob,preds,par_y in zip(concat_all_gather(q), concat_all_gather(pseudo_labels_b),concat_all_gather(max_scores),concat_all_gather(predicted_scores),concat_all_gather(partial_Y)):
+            norm_max=max_prob/preds.sum() 
+            base_prob=0.8-0.025*par_y.sum()
+            if norm_max>=base_prob:
+                self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
         # normalize prototypes    
         self.prototypes = F.normalize(self.prototypes, p=2, dim=1)
         
