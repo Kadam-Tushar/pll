@@ -319,7 +319,7 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
         Y_true = true_labels.long().detach().cuda()
         # for showing training accuracy and will not be used when training
 
-        cls_out, features_cont, pseudo_target_cont, score_prot = model(X_w, X_s, Y, args)
+        cls_out, features_cont, pseudo_target_cont, score_prot,mask_thres = model(X_w, X_s, Y, args)
         batch_size = cls_out.shape[0]
         pseudo_target_cont = pseudo_target_cont.contiguous().view(-1, 1)
 
@@ -329,6 +329,8 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
         
         if start_upd_prot:
             mask = torch.eq(pseudo_target_cont[:batch_size], pseudo_target_cont.T).float().cuda()
+            mask=mask*mask_thres
+            mask=(mask.T*mask_thres).T
             # get positive set by contrasting predicted labels
         else:
             mask = None
