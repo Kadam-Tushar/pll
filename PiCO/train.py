@@ -329,7 +329,6 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
         
         if start_upd_prot:
             mask = torch.eq(pseudo_target_cont[:batch_size], pseudo_target_cont.T).float().cuda()
-            mask=mask*mask_thres
             mask=(mask.T*mask_thres).T
             # get positive set by contrasting predicted labels
         else:
