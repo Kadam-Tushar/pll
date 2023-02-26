@@ -218,3 +218,9 @@ vehicles 2#lawn_mower, rocket, streetcar, tank, tractor'''
 
     print("Finish Generating Candidate Label Sets!\n")
     return partialY
+
+
+
+def entropy(p):
+    n=len(p)
+    return -1*(torch.log(p)*p).sum()/np.log(n)    

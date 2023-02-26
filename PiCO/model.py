@@ -3,6 +3,7 @@ import torch.nn as nn
 from random import sample
 import numpy as np
 import torch.nn.functional as F
+from utils.utils_algo import entropy
 
 class PiCO(nn.Module):
 
@@ -108,7 +109,8 @@ class PiCO(nn.Module):
             return output
         # for testing
 
-        predicted_scores = torch.softmax(output, dim=1) * partial_Y
+        predicted_scores_p = torch.softmax(output, dim=1)
+        predicted_scores=predicted_scores_p* partial_Y
         max_scores, pseudo_labels_b = torch.max(predicted_scores, dim=1)
         # using partial labels to filter out negative labels
 
@@ -118,14 +120,47 @@ class PiCO(nn.Module):
         score_prot = torch.softmax(logits_prot, dim=1)
         mask_thres=[]
         # update momentum prototypes with pseudo labels
-        for feat, label,max_prob,preds,par_y in zip(concat_all_gather(q), concat_all_gather(pseudo_labels_b),concat_all_gather(max_scores),concat_all_gather(predicted_scores),concat_all_gather(partial_Y)):
-            norm_max=max_prob/preds.sum() 
-            base_prob=0.7-0.025*par_y.sum()
-            if norm_max>=base_prob:
-                mask_thres.append(True)
+        for feat, label,max_prob,preds,par_y in zip(concat_all_gather(q), concat_all_gather(pseudo_labels_b),concat_all_gather(max_scores),concat_all_gather(predicted_scores_p),concat_all_gather(partial_Y)):
+            
+            if args.run_type_confidence==1:
                 self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+
             else:
-                mask_thres.append(False)    
+                
+                if args.run_type_confidence==2:
+                    base_prob=0.7   #-0.025*par_y.sum()
+                    if max_prob>=base_prob:
+                        mask_thres.append(True)
+                        self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+                    else:
+                        mask_thres.append(False)  
+
+                elif args.run_type_confidence==3:
+                    if entropy(preds)<=0.35:
+                        mask_thres.append(True)
+                        self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+                    else:
+                        mask_thres.append(False)  
+
+                elif args.run_type_confidence==4:
+                    preds_only=preds[torch.nonzero(preds*par_y,as_tuple=True)]
+                    preds_only=preds_only/preds_only.sum()
+                    if entropy(preds_only)<=0.35:
+                        mask_thres.append(True)
+                        self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+                    else:
+                        mask_thres.append(False)  
+
+                elif args.run_type_confidence==5:
+                    preds_only=preds*par_y
+                    preds_only=preds_only/preds_only.sum()
+                    if entropy(preds_only)<=0.35:
+                        mask_thres.append(True)
+                        self.prototypes[label] = self.prototypes[label]*args.proto_m + (1-args.proto_m)*feat
+                    else:
+                        mask_thres.append(False)         
+
+  
         # normalize prototypes    
         self.prototypes = F.normalize(self.prototypes, p=2, dim=1)
         mask_thres=torch.tensor(mask_thres)

@@ -99,6 +99,9 @@ parser.add_argument('--partial_rate', default=0.1, type=float,
                     help='ambiguity level (q)')
 parser.add_argument('--hierarchical', action='store_true', 
                     help='for CIFAR-100 fine-grained training')
+parser.add_argument('--run_type_confidence',default=1, type=int,
+                    help='select modification type 1-PICO_original, 2-thres on prob,3-thres on entropy,4-thres on norm entropy'
+                    )                    
 
 def main():
     args = parser.parse_args()
@@ -329,7 +332,7 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
         
         if start_upd_prot:
             mask = torch.eq(pseudo_target_cont[:batch_size], pseudo_target_cont.T).float().cuda()
-            mask=(mask.T*mask_thres).T
+            #mask=(mask.T*mask_thres).T
             # get positive set by contrasting predicted labels
         else:
             mask = None
