@@ -45,9 +45,13 @@ class SupConLoss(nn.Module):
             # SupCon loss (Partial Label Mode)
             mask = mask.float().detach().to(device)
             # compute logits
-            anchor_dot_contrast = torch.div(
-                torch.matmul(features[:batch_size], features.T),
-                self.temperature)
+#             anchor_dot_contrast = torch.div(
+#                 torch.matmul(features[:batch_size], features.T),
+#                 self.temperature)
+            cosine_angle = torch.matmul(torch.div(features[:batch_size],torch.norm(features[:batch_size], dim=1).repeat(len(features[1]),1).T),\
+                                        torch.div(features,torch.norm(features, dim=1).repeat(len(features[1]),1).T).T)# inner_product(a(\norm(a)),b/(\norm(b)))
+            anchor_dot_contrast = torch.div(cosine_angle,self.temperature) # feature is of size (2*N+Q)x K consisting of N queries +  N keys + Q -queues from MoCo)
+                
             # for numerical stability
             logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
             logits = anchor_dot_contrast - logits_max.detach()
@@ -67,7 +71,13 @@ class SupConLoss(nn.Module):
         
             # compute mean of log-likelihood over positive
             mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-
+            
+#             distance = torch.matmul(torch.div(features[:batch_size],torch.norm(features[:batch_size], dim=0)), \
+#                                         torch.div(features.T,torch.norm(features.T, dim=0)))# inner_product(a(\norm(a)),b/(\norm(b)))
+#             anchor_dot_contrast = torch.div(cosine_angle,self.temperature) # feature is of size (2*N+Q)x K consisting of N queries +  N keys + Q -queues from MoCo)
+                
+          r,c = features.shape    
+          distance = torch.norm(features.repeat(batch_size,1).view(batch_size,r,c) - features[:batch_size].unsqueeze(1).repeat(1, r, 1), dim = 2)
             # loss
             loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
             loss = loss.mean()
