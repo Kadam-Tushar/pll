@@ -31,10 +31,11 @@ class partial_loss(nn.Module):
 class SupConLoss(nn.Module):
     """Following Supervised Contrastive Learning: 
         https://arxiv.org/pdf/2004.11362.pdf."""
-    def __init__(self, temperature=0.07, base_temperature=0.07):
+    def __init__(self,args, temperature=0.07, base_temperature=0.07):
         super().__init__()
         self.temperature = temperature
         self.base_temperature = base_temperature
+        self.args = args
 
     def forward(self, features, mask=None, batch_size=-1):
         device = (torch.device('cuda')
@@ -73,7 +74,7 @@ class SupConLoss(nn.Module):
             mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
             #----distance based contrastive loss
             r,c = features.shape    
-            distance = torch.norm(features.repeat(batch_size,1).view(batch_size,r,c) - features[:batch_size].unsqueeze(1).repeat(1, r, 1), dim = 2)
+            distance = -torch.norm(features.repeat(batch_size,1).view(batch_size,r,c) - features[:batch_size].unsqueeze(1).repeat(1, r, 1), dim = 2)
             anchor_dot_contrast_d = torch.div(distance,self.temperature) # feature is of size (2*N+Q)x K consisting of N queries +  N keys + Q -queues from MoCo)
             # for numerical stability
             logits_max_d, _ = torch.max(anchor_dot_contrast_d, dim=1, keepdim=True)
@@ -87,7 +88,7 @@ class SupConLoss(nn.Module):
             mean_log_prob_pos_d = (mask * log_prob_d).sum(1) / mask.sum(1)
             
             # loss
-            loss = - (self.temperature / self.base_temperature) * (mean_log_prob_pos+ mean_log_prob_pos_d)
+            loss = - (self.temperature / self.base_temperature) * (mean_log_prob_pos+ self.args.hyper_distance*(mean_log_prob_pos_d))
             loss = loss.mean()
         else:
             # MoCo loss (unsupervised)

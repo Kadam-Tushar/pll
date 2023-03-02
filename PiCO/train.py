@@ -99,6 +99,8 @@ parser.add_argument('--partial_rate', default=0.1, type=float,
                     help='ambiguity level (q)')
 parser.add_argument('--hierarchical', action='store_true', 
                     help='for CIFAR-100 fine-grained training')
+parser.add_argument('--hyper_distance',default=0.5, type=float,  
+                    help='hyperparameter for distance based contrastive loss')
 
 def main():
     args = parser.parse_args()
@@ -252,7 +254,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # calculate confidence
 
     loss_fn = partial_loss(confidence)
-    loss_cont_fn = SupConLoss()
+    loss_cont_fn = SupConLoss(args)
     # set loss functions (with pseudo-targets maintained)
 
     if args.gpu==0:
