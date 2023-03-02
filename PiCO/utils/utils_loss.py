@@ -71,15 +71,23 @@ class SupConLoss(nn.Module):
         
             # compute mean of log-likelihood over positive
             mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
+            #----distance based contrastive loss
+            r,c = features.shape    
+            distance = torch.norm(features.repeat(batch_size,1).view(batch_size,r,c) - features[:batch_size].unsqueeze(1).repeat(1, r, 1), dim = 2)
+            anchor_dot_contrast_d = torch.div(distance,self.temperature) # feature is of size (2*N+Q)x K consisting of N queries +  N keys + Q -queues from MoCo)
+            # for numerical stability
+            logits_max_d, _ = torch.max(anchor_dot_contrast_d, dim=1, keepdim=True)
+            logits_d = anchor_dot_contrast_d - logits_max_d.detach()
+
+            # compute log_prob
+            exp_logits_d = torch.exp(logits_d) * logits_mask
+            log_prob_d = logits_d - torch.log(exp_logits_d.sum(1, keepdim=True) + 1e-12)
+        
+            # compute mean of log-likelihood over positive
+            mean_log_prob_pos_d = (mask * log_prob_d).sum(1) / mask.sum(1)
             
-#             distance = torch.matmul(torch.div(features[:batch_size],torch.norm(features[:batch_size], dim=0)), \
-#                                         torch.div(features.T,torch.norm(features.T, dim=0)))# inner_product(a(\norm(a)),b/(\norm(b)))
-#             anchor_dot_contrast = torch.div(cosine_angle,self.temperature) # feature is of size (2*N+Q)x K consisting of N queries +  N keys + Q -queues from MoCo)
-                
-          r,c = features.shape    
-          distance = torch.norm(features.repeat(batch_size,1).view(batch_size,r,c) - features[:batch_size].unsqueeze(1).repeat(1, r, 1), dim = 2)
             # loss
-            loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
+            loss = - (self.temperature / self.base_temperature) * (mean_log_prob_pos+ mean_log_prob_pos_d)
             loss = loss.mean()
         else:
             # MoCo loss (unsupervised)
