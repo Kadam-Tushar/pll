@@ -254,7 +254,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # calculate confidence
 
     loss_fn = partial_loss(confidence)
-    loss_cont_fn = SupConLoss(args)
+    loss_cont_fn_angle, loss_cont_fn_dist= SupConLoss(args)
     # set loss functions (with pseudo-targets maintained)
 
     if args.gpu==0:
@@ -273,7 +273,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
         
         adjust_learning_rate(args, optimizer, epoch)
-        train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, logger, start_upd_prot)
+        train(train_loader, model, loss_fn, loss_cont_fn_angle, loss_cont_fn_dist, optimizer, epoch, args, logger, start_upd_prot)
         loss_fn.set_conf_ema_m(epoch, args)
         # reset phi
 
@@ -297,16 +297,17 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best=is_best, filename='{}/checkpoint.pth.tar'.format(args.exp_dir),
             best_file_name='{}/checkpoint_best.pth.tar'.format(args.exp_dir))
 
-def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb_logger, start_upd_prot=False):
+def train(train_loader, model, loss_fn, loss_cont_fn_angle, loss_cont_fn_dist, optimizer, epoch, args, tb_logger, start_upd_prot=False):
     batch_time = AverageMeter('Time', ':1.2f')
     data_time = AverageMeter('Data', ':1.2f')
     acc_cls = AverageMeter('Acc@Cls', ':2.2f')
     acc_proto = AverageMeter('Acc@Proto', ':2.2f')
     loss_cls_log = AverageMeter('Loss@Cls', ':2.2f')
-    loss_cont_log = AverageMeter('Loss@Cont', ':2.2f')
+    loss_cont_angle_log = AverageMeter('Loss@Cont', ':2.2f')
+    loss_cont_dist_log = AverageMeter('Loss@Cont', ':2.2f')
     progress = ProgressMeter(
         len(train_loader),
-        [batch_time, data_time, acc_cls, acc_proto, loss_cls_log, loss_cont_log],
+        [batch_time, data_time, acc_cls, acc_proto, loss_cls_log, loss_cont_angle_log, loss_cont_dist_log],
         prefix="Epoch: [{}]".format(epoch))
 
     # switch to train mode
@@ -337,13 +338,14 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
             # Warmup using MoCo
 
         # contrastive loss
-        loss_cont = loss_cont_fn(features=features_cont, mask=mask, batch_size=batch_size)
+        loss_cont_angle, loss_cont_dist = loss_cont_fn_angle, loss_cont_fn_dist(features=features_cont, mask=mask, batch_size=batch_size)
         # classification loss
         loss_cls = loss_fn(cls_out, index)
 
-        loss = loss_cls + args.loss_weight * loss_cont
+        loss = loss_cls + args.loss_weight * (loss_cont_angle +  loss_cont_dist)# ---------we want to print this this will give us per batch loss -----
         loss_cls_log.update(loss_cls.item())
-        loss_cont_log.update(loss_cont.item())
+        loss_cont_angle_log.update(loss_cont_angle.item())
+        loss_cont_dist_log.update(loss_cont_dist.item())
 
         # log accuracy
         acc = accuracy(cls_out, Y_true)[0]
@@ -366,7 +368,8 @@ def train(train_loader, model, loss_fn, loss_cont_fn, optimizer, epoch, args, tb
         tb_logger.log_value('Train Acc', acc_cls.avg, epoch)
         tb_logger.log_value('Prototype Acc', acc_proto.avg, epoch)
         tb_logger.log_value('Classification Loss', loss_cls_log.avg, epoch)
-        tb_logger.log_value('Contrastive Loss', loss_cont_log.avg, epoch)
+        tb_logger.log_value('Contrastive Loss angle based', loss_cont_angle_log.avg, epoch)
+        tb_logger.log_value('Contrastive Loss distance based', loss_cont_dist_log.avg, epoch)
     
 
 def test(model, test_loader, args, epoch, tb_logger):
