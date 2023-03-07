@@ -342,7 +342,7 @@ def train(train_loader, model, loss_fn, loss_cont_fn_angle, loss_cont_fn_dist, o
         # classification loss
         loss_cls = loss_fn(cls_out, index)
 
-        loss = loss_cls + args.loss_weight * (loss_cont_angle +  loss_cont_dist)# ---------we want to print this this will give us per batch loss -----
+        loss = loss_cls + args.loss_weight * ((1-self.args.hyper_distance)*loss_cont_angle +  self.args.hyper_distance*loss_cont_dist)# ---------we want to print this this will give us per batch loss -----
         loss_cls_log.update(loss_cls.item())
         loss_cont_angle_log.update(loss_cont_angle.item())
         loss_cont_dist_log.update(loss_cont_dist.item())
