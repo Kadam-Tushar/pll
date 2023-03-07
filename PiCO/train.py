@@ -90,7 +90,7 @@ parser.add_argument('--moco_m', default=0.999, type=float,
 parser.add_argument('--proto_m', default=0.99, type=float,
                     help='momentum for computing the momving average of prototypes')
 parser.add_argument('--loss_weight', default=0.5, type=float,
-                    help='contrastive loss weight')
+                    help='contrastive loss weight')# -------weightage for the contrastive loss ---- we can make changes here
 parser.add_argument('--conf_ema_range', default='0.95,0.8', type=str,
                     help='pseudo target updating coefficient (phi)')
 parser.add_argument('--prot_start', default=80, type=int, 
