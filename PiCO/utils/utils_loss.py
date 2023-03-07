@@ -88,8 +88,11 @@ class SupConLoss(nn.Module):
             mean_log_prob_pos_d = (mask * log_prob_d).sum(1) / mask.sum(1)
             
             # loss
-            loss = - (self.temperature / self.base_temperature) * (mean_log_prob_pos+ self.args.hyper_distance*(mean_log_prob_pos_d))
-            loss = loss.mean()
+            #loss = - (self.temperature / self.base_temperature) * (mean_log_prob_pos+ self.args.hyper_distance*(mean_log_prob_pos_d))
+            loss1 = - (self.temperature / self.base_temperature) * (mean_log_prob_pos)
+            loss1 = loss1.mean()
+            loss2 = - (self.temperature / self.base_temperature) * (mean_log_prob_pos_d)
+            loss2 = loss2.mean()
         else:
             # MoCo loss (unsupervised)
             # compute logits
@@ -109,6 +112,7 @@ class SupConLoss(nn.Module):
 
             # labels: positive key indicators
             labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
-            loss = F.cross_entropy(logits, labels)
+            loss1 = F.cross_entropy(logits, labels)
+            loss2 = F.cross_entropy(logits, labels)
 
-        return loss
+        return loss1, loss2
